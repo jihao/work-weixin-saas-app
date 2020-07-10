@@ -1,1 +1,22 @@
+logging:
+  level:
+    org.springframework.web: INFO
+    com.superhao.weixin.qyapi: DEBUG
+#    me.chanjar.weixin: DEBUG
 
+work:
+  weixin:
+    #    agentId:
+    #    secret:
+    #第三方应用服务商信息corp_id
+    corpId:
+    #第三方应用通用开发参数providerSecret
+    providerSecret:
+    #第三方网页应用回调配置token
+    token:
+    #第三方网页应用回调配置EncodingAESKey
+    aesKey:
+    #第三方网页应用SuiteID (服务商后台查看应用)
+    suiteId:
+    #第三方网页应用secret
+    suiteSecret:
