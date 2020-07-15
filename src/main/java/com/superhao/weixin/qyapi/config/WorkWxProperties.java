@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
 @ConfigurationProperties(prefix = "work.weixin")
-public class WorkWeixinProperties {
+public class WorkWxProperties {
 
     /**
      * 服务商的corpid
