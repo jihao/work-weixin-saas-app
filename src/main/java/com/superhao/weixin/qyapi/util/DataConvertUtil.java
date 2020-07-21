@@ -1,4 +1,4 @@
-package com.superhao.weixin.qyapi.sevice;
+package com.superhao.weixin.qyapi.util;
 
 import com.alibaba.fastjson.JSONObject;
 import com.superhao.weixin.qyapi.entity.AuthCorp;

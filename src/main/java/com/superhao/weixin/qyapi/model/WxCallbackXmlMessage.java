@@ -102,6 +102,11 @@ public class WxCallbackXmlMessage implements Serializable {
     @XStreamAlias("Email")
     @XStreamConverter(value = XStreamCDataConverter.class)
     private String email;
+    /**
+     * 激活状态：1=激活或关注， 2=禁用， 4=未激活 已激活代表已激活企业微信或已关注微工作台（原企业号）。未激活代表既未激活企业微信又未关注微工作台（原企业号）
+     */
+    @XStreamAlias("Status")
+    private Integer status;
     @XStreamAlias("Avatar")
     @XStreamConverter(value = XStreamCDataConverter.class)
     private String avatar;
@@ -134,8 +139,7 @@ public class WxCallbackXmlMessage implements Serializable {
      * 部门排序.
      */
     @XStreamAlias("Order")
-    @XStreamConverter(value = XStreamCDataConverter.class)
-    private String order;
+    private Long order;
 
     //////////////////////////////////////////////////////////////
     // 标签成员变更事件

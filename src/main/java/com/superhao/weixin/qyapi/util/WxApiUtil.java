@@ -1,5 +1,6 @@
-package com.superhao.weixin.qyapi.sevice;
+package com.superhao.weixin.qyapi.util;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
 import org.apache.http.client.fluent.Request;
@@ -156,8 +157,20 @@ public class WxApiUtil {
      * @return
      */
     public static JSONObject getAuthInfo(String suiteAccessToken, String authCorpId, String permanentCode) {
+        JSONObject body = new JSONObject();
+        body.put("auth_corpid", authCorpId);
+        body.put("permanent_code", permanentCode);
 
-        return null;
+        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/service/get_corp_token?suite_access_token=%s";
+        String url = String.format(urlTemplate, suiteAccessToken);
+
+        String result = doPost(url, body.toJSONString());
+        if (!result.isEmpty()) {
+            JSONObject resultJson = JSONObject.parseObject(result);
+
+            return resultJson;
+        }
+        return new JSONObject(); // avoid null
     }
 
 

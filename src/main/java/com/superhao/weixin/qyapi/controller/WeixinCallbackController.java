@@ -4,12 +4,17 @@ import com.alibaba.fastjson.JSONObject;
 import com.qq.weixin.mp.aes.WXBizMsgCrypt;
 import com.superhao.weixin.qyapi.config.WorkWxProperties;
 import com.superhao.weixin.qyapi.entity.AuthCorp;
+import com.superhao.weixin.qyapi.entity.AuthCorpPartyDetail;
+import com.superhao.weixin.qyapi.entity.AuthCorpUser;
+import com.superhao.weixin.qyapi.entity.AuthCorpUserDetail;
 import com.superhao.weixin.qyapi.model.BizException;
 import com.superhao.weixin.qyapi.model.WxCallbackXmlMessage;
+import com.superhao.weixin.qyapi.repository.AuthCorpPartyDetailRepository;
 import com.superhao.weixin.qyapi.repository.AuthCorpRepository;
-import com.superhao.weixin.qyapi.service.WorkWxService;
-import com.superhao.weixin.qyapi.sevice.DataConvertUtil;
-import com.superhao.weixin.qyapi.sevice.WxApiUtil;
+import com.superhao.weixin.qyapi.repository.AuthCorpUserDetailRepository;
+import com.superhao.weixin.qyapi.repository.AuthCorpUserRepository;
+import com.superhao.weixin.qyapi.util.WxApiUtil;
+import com.superhao.weixin.qyapi.util.DataConvertUtil;
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.io.xml.DomDriver;
 import org.dom4j.Document;
@@ -19,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -34,10 +40,16 @@ public class WeixinCallbackController {
     private WorkWxProperties workWxProperties;
 
     @Autowired
-    private WorkWxService workWxService;
+    private AuthCorpRepository authCorpRepository;
 
     @Autowired
-    private AuthCorpRepository authCorpRepository;
+    private AuthCorpUserRepository authCorpUserRepository;
+
+    @Autowired
+    private AuthCorpUserDetailRepository authCorpUserDetailRepository;
+
+    @Autowired
+    private AuthCorpPartyDetailRepository authCorpPartyDetailRepository;
 
     /**
      * 数据回调URL
@@ -72,6 +84,9 @@ public class WeixinCallbackController {
      * 用于接收托管企业微信应用的用户消息和用户事件。
      * URL支持使用$CORPID$模板参数表示corpid，推送事件时企业微信会自动将其替换为授权企业的corpid。
      * (关于如何回调，请参考接收消息 https://work.weixin.qq.com/api/doc/10514。
+     *
+     * 事件格式: https://work.weixin.qq.com/api/doc/90001/90143/90376
+     *
      * 注意验证时$CORPID$模板参数会替换为当前服务商的corpid，校验时也应该使用corpid初始化解密库)
      * </pre>
      *
@@ -91,30 +106,41 @@ public class WeixinCallbackController {
         try {
             WXBizMsgCrypt wxcpt = new WXBizMsgCrypt(workWxProperties.getToken(), workWxProperties.getAesKey(), corpId);
             String info = wxcpt.DecryptMsg(msgSignature, timestamp, nonce, body);
-            // logger.info( "POST解密明文info[{}]", info );
+            logger.debug("POST解密明文info[{}]", info);
             //XML文件解析
             Document documentInfo = DocumentHelper.parseText(info);
             Element root = documentInfo.getRootElement();
             //订阅消息
             String event = root.elementTextTrim("Event");
 
+            // 事件格式 https://work.weixin.qq.com/api/doc/90001/90143/90376
+            // 小程序在管理端开启接收消息配置后，也可收到关注/取消关注事件
+            // 本事件触发时机为：
+            //
+            // 成员已经加入企业，管理员添加成员到应用可见范围(或移除可见范围)时
+            // 成员已经在应用可见范围，成员加入(或退出)企业时
             if ("subscribe".equals(event)) {
-                //第三方服务商id
+                //授权方企业微信CorpID
                 String toUserName = root.elementTextTrim("ToUserName");
-                //账号
+                //授权方成员UserID
                 String fromUserName = root.elementTextTrim("FromUserName");
-                //应用ID
+                //授权方企业应用ID
                 String agentID = root.elementTextTrim("AgentID");
 
-                workWxService.createAuthorizedCorp(toUserName, fromUserName, agentID);
+                AuthCorpUser authCorpUser = new AuthCorpUser();
+                authCorpUser.setAgentid(Long.valueOf(agentID));
+                authCorpUser.setCorpid(toUserName);
+                authCorpUser.setUserid(fromUserName);
+                authCorpUserRepository.save(authCorpUser);
             } else if ("unsubscribe".equals(event)) {
-                //第三方服务商id
+                //授权方企业微信CorpID
                 String toUserName = root.elementTextTrim("ToUserName");
-                //账号
+                //授权方成员UserID
                 String fromUserName = root.elementTextTrim("FromUserName");
-                //应用ID
+                //授权方企业应用ID
                 String agentID = root.elementTextTrim("AgentID");
-                workWxService.deleteAuthorizedCorp(toUserName, fromUserName, agentID);
+
+                authCorpUserRepository.deleteByCorpidAndAgentidAndUserid(toUserName, Long.valueOf(agentID), fromUserName);
             }
         } catch (Exception e) {
             throw new BizException("POST数据回调异常", e);
@@ -216,6 +242,7 @@ public class WeixinCallbackController {
                         permanentCode = authCorpOptional.get().getPermanent_code();
                     }
                     resultJson = WxApiUtil.getAuthInfo(suiteAccessToken, authCorpId, permanentCode);
+                    // 保存企业授权信息
                     AuthCorp authCorpResp = DataConvertUtil.permanentCodeRespJson2AuthCorpEntity(resultJson);
                     if (authCorpOptional.isPresent()) {
                         AuthCorp authCorpFromDB = authCorpOptional.get();
@@ -234,7 +261,73 @@ public class WeixinCallbackController {
                     WxApiUtil.removeCachedAccessToken(authCorpId);
                     break;
                 case "change_contact":
-                    // TODO:
+                    logger.debug("通讯录变更事件通知");
+                    String changeType = wxMessage.getChangeType();
+                    String userID = wxMessage.getUserID();
+                    Long partyId = wxMessage.getId(); // 部门id，仅在推扫部门事件时有用
+                    switch (changeType) {
+                        case "create_user":
+                            AuthCorpUserDetail authCorpUserDetail = new AuthCorpUserDetail();
+                            BeanUtils.copyProperties(wxMessage, authCorpUserDetail, "id");
+                            authCorpUserDetailRepository.save(authCorpUserDetail);
+                            break;
+                        case "update_user":
+                            authCorpId = wxMessage.getAuthCorpId();
+                            Optional<AuthCorpUserDetail> optionalAuthCorpUserDetail = authCorpUserDetailRepository.findFirstByAuthCorpIdAndUserID(authCorpId, userID);
+                            if (optionalAuthCorpUserDetail.isPresent()) {
+                                AuthCorpUserDetail authCorpUserDetailDB = optionalAuthCorpUserDetail.get();
+                                BeanUtils.copyProperties(wxMessage, authCorpUserDetailDB, "id");
+                                String newUserID = wxMessage.getNewUserID();
+                                if (!StringUtils.isEmpty(newUserID)) {
+                                    logger.debug("新的UserID=[{}]，变更时推送", newUserID);
+
+                                }
+                                authCorpUserDetailDB.setUpdated_at(new Date());
+                                authCorpUserDetailRepository.save(authCorpUserDetailDB);
+                            }
+                            break;
+                        case "delete_user":
+                            userID = wxMessage.getUserID();
+                            authCorpId = wxMessage.getAuthCorpId();
+                            authCorpUserDetailRepository.deleteByAuthCorpIdAndUserID(authCorpId, userID);
+                            break;
+                        case "create_party":
+                            partyId = wxMessage.getId();
+                            AuthCorpPartyDetail authCorpPartyDetail = new AuthCorpPartyDetail();
+                            BeanUtils.copyProperties(wxMessage, authCorpPartyDetail, "id");
+                            authCorpPartyDetail.setPartyId(partyId);
+                            authCorpPartyDetailRepository.save(authCorpPartyDetail);
+                            break;
+                        case "update_party":
+                            partyId = wxMessage.getId();
+                            authCorpId = wxMessage.getAuthCorpId();
+                            Optional<AuthCorpPartyDetail> optionalAuthCorpPartyDetail = authCorpPartyDetailRepository.findFirstByAuthCorpIdAndPartyId(authCorpId, partyId);
+                            if(optionalAuthCorpPartyDetail.isPresent()) {
+                                AuthCorpPartyDetail authCorpPartyDetailDB = optionalAuthCorpPartyDetail.get();
+                                //Name	部门名称，仅当该字段发生变更时传递
+                                //ParentId	父部门id，仅当该字段发生变更时传递
+                                String name = wxMessage.getName();
+                                if(!StringUtils.isEmpty(name)) {
+                                    authCorpPartyDetailDB.setName(name);
+                                }
+                                String parentId = wxMessage.getParentId();
+                                if(!StringUtils.isEmpty(parentId)) {
+                                    authCorpPartyDetailDB.setParentId(parentId);
+                                }
+                                authCorpPartyDetailDB.setUpdated_at(new Date());
+                                authCorpPartyDetailRepository.save(authCorpPartyDetailDB);
+                            }
+                            break;
+                        case "delete_party":
+                            partyId = wxMessage.getId();
+                            authCorpId = wxMessage.getAuthCorpId();
+                            authCorpPartyDetailRepository.deleteByAuthCorpIdAndPartyId(authCorpId, partyId);
+                            break;
+                        case "update_tag":
+                            // TODO: 暂未处理
+                        default:
+                            break;
+                    }
                     break;
                 default:
                     break;
