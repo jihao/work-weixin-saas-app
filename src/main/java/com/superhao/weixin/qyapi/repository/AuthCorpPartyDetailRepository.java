@@ -4,6 +4,7 @@ import com.superhao.weixin.qyapi.entity.AuthCorpPartyDetail;
 import com.superhao.weixin.qyapi.entity.AuthCorpUserDetail;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -12,5 +13,6 @@ public interface AuthCorpPartyDetailRepository extends CrudRepository<AuthCorpPa
 
     Optional<AuthCorpPartyDetail> findFirstByAuthCorpIdAndPartyId(String authCorpId, Long partyId);
 
+    @Transactional
     void deleteByAuthCorpIdAndPartyId(String authCorpId, Long partyId);
 }

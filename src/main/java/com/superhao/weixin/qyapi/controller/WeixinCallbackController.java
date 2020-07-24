@@ -200,6 +200,7 @@ public class WeixinCallbackController {
             logger.debug("POST解密明文[{}]", info);
 
             XStream xstream = new XStream(new DomDriver());
+            xstream.processAnnotations(WxCallbackXmlMessage.class);
             WxCallbackXmlMessage wxMessage = (WxCallbackXmlMessage) xstream.fromXML(info);
             String infoType = wxMessage.getInfoType();
 
@@ -257,6 +258,7 @@ public class WeixinCallbackController {
                     logger.debug("取消授权通知");
                     authCorpId = wxMessage.getAuthCorpId();
                     authCorpRepository.deleteByCorpid(authCorpId);
+                    authCorpUserRepository.deleteByCorpid(authCorpId);
                     WxApiUtil.removeCachedPermanentCode(authCorpId);
                     WxApiUtil.removeCachedAccessToken(authCorpId);
                     break;

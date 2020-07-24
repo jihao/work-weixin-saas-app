@@ -5,10 +5,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
 import lombok.Data;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.util.Date;
 
 /**
@@ -52,6 +49,7 @@ public class AuthCorpPartyDetail {
     /**
      * 部门排序.
      */
+    @Column(name = "party_order")
     private Long order;
 
 

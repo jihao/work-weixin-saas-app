@@ -3,6 +3,16 @@ logging:
     org.springframework.web: INFO
     com.superhao.weixin.qyapi: DEBUG
 #    me.chanjar.weixin: DEBUG
+server:
+  port: 8989
+
+spring:
+  application:
+    name: work-weixin-saas-app
+  jpa:
+    generate-ddl: on
+    hibernate:
+      ddl-auto: update
 
 work:
   weixin:
