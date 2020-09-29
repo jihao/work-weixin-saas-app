@@ -161,13 +161,80 @@ public class WxApiUtil {
         body.put("auth_corpid", authCorpId);
         body.put("permanent_code", permanentCode);
 
-        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/service/get_corp_token?suite_access_token=%s";
+        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/service/get_auth_info?suite_access_token=%s";
         String url = String.format(urlTemplate, suiteAccessToken);
 
         String result = doPost(url, body.toJSONString());
         if (!result.isEmpty()) {
             JSONObject resultJson = JSONObject.parseObject(result);
 
+            return resultJson;
+        }
+        return new JSONObject(); // avoid null
+    }
+
+    /**
+     * 获取企业授权信息
+     * <p>
+     * 第三方服务商在取得企业的永久授权码后，通过此接口可以获取到企业的access_token。
+     * 获取后可通过通讯录、应用、消息等企业接口来运营这些应用。
+     *
+     * 此处获得的企业access_token与企业获取access_token拿到的token，本质上是一样的，只不过获取方式不同。获取之后，就跟普通企业一样使用token调用API接口
+     * <p>
+     * https://open.work.weixin.qq.com/api/doc/10975#%E8%8E%B7%E5%8F%96%E4%BC%81%E4%B8%9Aaccess_token
+     *  @param suiteAccessToken
+     * @param authCorpId
+     * @param permanentCode
+     * @return
+     */
+    public static String getAccessToken(String suiteAccessToken, String authCorpId, String permanentCode) {
+        JSONObject body = new JSONObject();
+        body.put("auth_corpid", authCorpId);
+        body.put("permanent_code", permanentCode);
+
+        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/service/get_corp_token?suite_access_token=%s";
+        String url = String.format(urlTemplate, suiteAccessToken);
+
+        String result = doPost(url, body.toJSONString());
+        if (!result.isEmpty()) {
+            JSONObject resultJson = JSONObject.parseObject(result);
+            String accessToken = resultJson.getString("access_token");
+
+            // 获取企业永久授权码 时 保存 access_token 等信息
+            CACHE_ACCESS_TOKEN.put(authCorpId, accessToken);
+            return accessToken;
+        }
+        return CACHE_ACCESS_TOKEN.getOrDefault(authCorpId, "");
+    }
+
+    /**
+     * 获取部门列表
+     * @param accessToken
+     * @return
+     */
+    public static JSONObject getDepartmentList(String accessToken) {
+        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/department/list?access_token=%s&id=";
+        String url = String.format(urlTemplate, accessToken);
+        String result = doGet(url);
+        if (!result.isEmpty()) {
+            JSONObject resultJson = JSONObject.parseObject(result);
+            return resultJson;
+        }
+        return new JSONObject(); // avoid null
+    }
+
+    /**
+     * 获取部门列表
+     * @param accessToken
+     * @return
+     */
+    public static JSONObject getUserSimpleList(String accessToken, String departmentId) {
+        // fetch_child	否	是否递归获取子部门下面的成员：1-递归获取，0-只获取本部门
+        String urlTemplate = "https://qyapi.weixin.qq.com/cgi-bin/user/simplelist?access_token=%s&department_id=%s&fetch_child=0";
+        String url = String.format(urlTemplate, accessToken, departmentId);
+        String result = doGet(url);
+        if (!result.isEmpty()) {
+            JSONObject resultJson = JSONObject.parseObject(result);
             return resultJson;
         }
         return new JSONObject(); // avoid null

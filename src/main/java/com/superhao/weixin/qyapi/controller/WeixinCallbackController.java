@@ -3,16 +3,14 @@ package com.superhao.weixin.qyapi.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.qq.weixin.mp.aes.WXBizMsgCrypt;
 import com.superhao.weixin.qyapi.config.WorkWxProperties;
-import com.superhao.weixin.qyapi.entity.AuthCorp;
-import com.superhao.weixin.qyapi.entity.AuthCorpPartyDetail;
-import com.superhao.weixin.qyapi.entity.AuthCorpUser;
-import com.superhao.weixin.qyapi.entity.AuthCorpUserDetail;
+import com.superhao.weixin.qyapi.entity.*;
 import com.superhao.weixin.qyapi.model.BizException;
 import com.superhao.weixin.qyapi.model.WxCallbackXmlMessage;
 import com.superhao.weixin.qyapi.repository.AuthCorpPartyDetailRepository;
 import com.superhao.weixin.qyapi.repository.AuthCorpRepository;
 import com.superhao.weixin.qyapi.repository.AuthCorpUserDetailRepository;
 import com.superhao.weixin.qyapi.repository.AuthCorpUserRepository;
+import com.superhao.weixin.qyapi.service.WxAddressBookService;
 import com.superhao.weixin.qyapi.util.WxApiUtil;
 import com.superhao.weixin.qyapi.util.DataConvertUtil;
 import com.thoughtworks.xstream.XStream;
@@ -30,6 +28,10 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Date;
 import java.util.Optional;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/callback")
@@ -50,6 +52,11 @@ public class WeixinCallbackController {
 
     @Autowired
     private AuthCorpPartyDetailRepository authCorpPartyDetailRepository;
+
+    @Autowired
+    private WxAddressBookService wxAddressBookService;
+
+    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
 
     /**
      * 数据回调URL
@@ -206,6 +213,7 @@ public class WeixinCallbackController {
 
             String authCorpId;
             JSONObject resultJson;
+            String accessToken;
             String suiteAccessToken = WxApiUtil.getCachedSuiteAccessToken();
 
             switch (infoType) {
@@ -230,6 +238,23 @@ public class WeixinCallbackController {
                     // 保存企业授权信息
                     AuthCorp authCorp = DataConvertUtil.permanentCodeRespJson2AuthCorpEntity(resultJson);
                     authCorpRepository.save(authCorp);
+                    // 换取企业的access_token
+                    String corpid = authCorp.getCorpid();
+                    String permanentCodeTmp = resultJson.getString("permanent_code");
+                    accessToken = WxApiUtil.getAccessToken(suiteAccessToken, authCorp.getCorpid(), permanentCodeTmp);
+                    logger.debug("AuthCorp's accessToken = {}, 换取的 accessToken={}", authCorp.getAccess_token(), accessToken);
+                    // 通讯录逻辑，获取部门列表，获取用户列表
+                    scheduler.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            logger.info("通讯录逻辑，获取部门列表，获取用户列表");
+
+                            Iterable<WxDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(corpid, accessToken);
+                            for(WxDepartment wxDepartment : wxDepartments) {
+                                Iterable<WxUser> wxUsers = wxAddressBookService.fetchUserSimpleList(corpid, accessToken, String.valueOf(wxDepartment.getDeptid()));
+                            }
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
                     break;
                 case "change_auth":
                     // 当授权方（即授权企业）在企业微信管理端的授权管理中，修改了对应用的授权后，企业微信服务器推送变更授权通知。
@@ -247,11 +272,28 @@ public class WeixinCallbackController {
                     AuthCorp authCorpResp = DataConvertUtil.permanentCodeRespJson2AuthCorpEntity(resultJson);
                     if (authCorpOptional.isPresent()) {
                         AuthCorp authCorpFromDB = authCorpOptional.get();
-                        BeanUtils.copyProperties(authCorpResp, authCorpFromDB);
+                        BeanUtils.copyProperties(authCorpResp, authCorpFromDB, "id");
 
                         authCorpFromDB.setUpdated_at(new Date());
                         authCorpRepository.save(authCorpFromDB);
                     }
+
+                    accessToken = WxApiUtil.getAccessToken(suiteAccessToken, authCorpId, permanentCode);
+                    logger.debug("AuthCorp's accessToken = {}, 换取的 accessToken={}", authCorpResp.getAccess_token(), accessToken);
+                    // 通讯录逻辑，获取部门列表，获取用户列表
+                    scheduler.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            logger.info("通讯录逻辑，删除部门列表，删除用户列表");
+                            wxAddressBookService.deleteWxUserByCorpId(authCorpId);
+                            wxAddressBookService.deleteWxDepartmentByCorpId(authCorpId);
+                            logger.info("通讯录逻辑，获取部门列表，获取用户列表");
+                            Iterable<WxDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(authCorpId, accessToken);
+                            for(WxDepartment wxDepartment : wxDepartments) {
+                                Iterable<WxUser> wxUsers = wxAddressBookService.fetchUserSimpleList(authCorpId, accessToken, String.valueOf(wxDepartment.getDeptid()));
+                            }
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
                     break;
                 case "cancel_auth":
                     // 当授权方（即授权企业）在企业微信管理端的授权管理中，取消了对应用的授权托管后，企业微信后台会推送取消授权通知。
@@ -261,6 +303,16 @@ public class WeixinCallbackController {
                     authCorpUserRepository.deleteByCorpid(authCorpId);
                     WxApiUtil.removeCachedPermanentCode(authCorpId);
                     WxApiUtil.removeCachedAccessToken(authCorpId);
+
+                    // 通讯录逻辑，获取部门列表，获取用户列表
+                    scheduler.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            logger.info("通讯录逻辑，删除部门列表，删除用户列表");
+                            wxAddressBookService.deleteWxUserByCorpId(authCorpId);
+                            wxAddressBookService.deleteWxDepartmentByCorpId(authCorpId);
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
                     break;
                 case "change_contact":
                     logger.debug("通讯录变更事件通知");
