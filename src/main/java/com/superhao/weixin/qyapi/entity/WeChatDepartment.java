@@ -10,7 +10,7 @@ import java.util.Date;
  */
 @Data
 @Entity
-public class WxDepartment {
+public class WeChatDepartment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -19,7 +19,6 @@ public class WxDepartment {
     private Date updated_at = new Date();
 
     private String corpid;
-    private Long agentid;
 
     /**
      * <pre>
@@ -36,6 +35,7 @@ public class WxDepartment {
     private String name;
     private String name_en;
     private Long parentid;
+    private Integer permissions = 7;
 
     @Column(name="dept_order")
     private Long order;

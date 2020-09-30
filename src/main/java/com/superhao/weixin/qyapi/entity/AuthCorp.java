@@ -10,6 +10,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@Table(name = "wx_auth_corp")
 public class AuthCorp {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

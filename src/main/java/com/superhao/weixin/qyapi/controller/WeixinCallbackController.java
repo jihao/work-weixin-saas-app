@@ -249,9 +249,9 @@ public class WeixinCallbackController {
                         public void run() {
                             logger.info("通讯录逻辑，获取部门列表，获取用户列表");
 
-                            Iterable<WxDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(corpid, accessToken);
-                            for(WxDepartment wxDepartment : wxDepartments) {
-                                Iterable<WxUser> wxUsers = wxAddressBookService.fetchUserSimpleList(corpid, accessToken, String.valueOf(wxDepartment.getDeptid()));
+                            Iterable<WeChatDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(corpid, accessToken);
+                            for(WeChatDepartment weChatDepartment : wxDepartments) {
+                                Iterable<WeChatUser> wxUsers = wxAddressBookService.fetchUserSimpleList(corpid, accessToken, String.valueOf(weChatDepartment.getDeptid()));
                             }
                         }
                     }, 0, TimeUnit.MILLISECONDS);
@@ -288,9 +288,9 @@ public class WeixinCallbackController {
                             wxAddressBookService.deleteWxUserByCorpId(authCorpId);
                             wxAddressBookService.deleteWxDepartmentByCorpId(authCorpId);
                             logger.info("通讯录逻辑，获取部门列表，获取用户列表");
-                            Iterable<WxDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(authCorpId, accessToken);
-                            for(WxDepartment wxDepartment : wxDepartments) {
-                                Iterable<WxUser> wxUsers = wxAddressBookService.fetchUserSimpleList(authCorpId, accessToken, String.valueOf(wxDepartment.getDeptid()));
+                            Iterable<WeChatDepartment> wxDepartments = wxAddressBookService.fetchDepartmentList(authCorpId, accessToken);
+                            for(WeChatDepartment weChatDepartment : wxDepartments) {
+                                Iterable<WeChatUser> wxUsers = wxAddressBookService.fetchUserSimpleList(authCorpId, accessToken, String.valueOf(weChatDepartment.getDeptid()));
                             }
                         }
                     }, 0, TimeUnit.MILLISECONDS);

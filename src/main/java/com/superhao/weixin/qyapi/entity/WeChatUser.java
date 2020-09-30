@@ -2,10 +2,7 @@ package com.superhao.weixin.qyapi.entity;
 
 import lombok.Data;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.util.Date;
 
 /**
@@ -13,7 +10,7 @@ import java.util.Date;
  */
 @Data
 @Entity
-public class WxUser {
+public class WeChatUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -22,7 +19,6 @@ public class WxUser {
     private Date updated_at = new Date();
 
     private String corpid;
-    private Long agentid;
 
     /**
      * <pre>
@@ -36,11 +32,22 @@ public class WxUser {
      */
 
     private String userid;
+    /**
+     * 打印机场景 企业微信扫码传递，非获取部门成员simple list参数
+     */
+    private Integer userType = 0;
     private String name;
     /**
      * 逗号分隔的id字符串
      */
     private String department;
     private String open_userid;
+
+    /**
+     * 当前扫描的哪一台机器，数据库值仅代表最后扫的那一台
+     */
+    private Long currentDeviceInfoId;
+
+    private Integer permissions = 7;
 
 }

@@ -2,10 +2,7 @@ package com.superhao.weixin.qyapi.entity;
 
 import lombok.Data;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.util.Date;
 
 /**
@@ -13,6 +10,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@Table(name = "wx_auth_corp_user_detail")
 public class AuthCorpUserDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -13,6 +13,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@Table(name = "wx_auth_corp_party_detail")
 public class AuthCorpPartyDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
